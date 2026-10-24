@@ -1,7 +1,12 @@
 // Лабораторна робота №4. Варіант 1.
 // Простий HTTP-сервер на Node.js: читає файл даних bank_managers.json
 // (JSON-масив) і повертає його обробленим за параметрами рядка запиту.
+//
+// Робота з файлами — ЛИШЕ колбек-API модуля fs:
+// fs.readFile, fs.writeFile, fs.access. Без Sync, без promises, без async/await.
 
+import http from 'node:http';
+import fs from 'node:fs';
 import { Command } from 'commander';
 
 // ---------------------------------------------------------------
@@ -35,8 +40,61 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
   process.exit(1);
 }
 
-console.log('Параметри запуску:');
-console.log('  input :', options.input);
-console.log('  host  :', options.host);
-console.log('  port  :', port);
-console.log('  output:', options.output ?? '(не задано)');
+// ---------------------------------------------------------------
+// 2. Перевірка, що файл даних існує й доступний для читання
+// ---------------------------------------------------------------
+fs.access(options.input, fs.constants.R_OK, (accessError) => {
+  if (accessError) {
+    console.error(`Cannot find input file: ${options.input}`);
+    process.exit(1);
+  }
+
+  startServer();
+});
+
+// ---------------------------------------------------------------
+// 3. HTTP-сервер
+// ---------------------------------------------------------------
+function startServer() {
+  const server = http.createServer((req, res) => {
+    handleRequest(req, res);
+  });
+
+  server.listen(port, options.host, () => {
+    console.log(`Сервер слухає http://${options.host}:${port}`);
+    console.log(`Файл даних: ${options.input}`);
+    if (options.output) {
+      console.log(`Файл виводу: ${options.output}`);
+    }
+  });
+
+  server.on('error', (serverError) => {
+    console.error(`Помилка сервера: ${serverError.message}`);
+    process.exit(1);
+  });
+}
+
+// ---------------------------------------------------------------
+// 4. Обробник запиту
+// ---------------------------------------------------------------
+function handleRequest(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
+  // Дані віддаються лише за маршрутом «/», будь-який інший шлях — 404.
+  if (url.pathname !== '/') {
+    sendJson(res, 404, { error: 'Маршрут не знайдено' });
+    return;
+  }
+
+  sendJson(res, 200, []);
+}
+
+// ---------------------------------------------------------------
+// 5. Надсилання JSON-відповіді
+// ---------------------------------------------------------------
+function sendJson(res, statusCode, payload) {
+  const body = JSON.stringify(payload);
+
+  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(body);
+}

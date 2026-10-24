@@ -86,11 +86,51 @@ function handleRequest(req, res) {
     return;
   }
 
-  sendJson(res, 200, []);
+  // Файл даних перечитується на кожен запит — асинхронно, через колбек.
+  fs.readFile(options.input, 'utf8', (readError, rawData) => {
+    if (readError) {
+      sendJson(res, 500, { error: 'Не вдалося прочитати файл даних' });
+      return;
+    }
+
+    let records;
+
+    try {
+      records = parseData(rawData);
+    } catch (parseError) {
+      sendJson(res, 500, { error: 'Файл даних пошкоджено (некоректний JSON)' });
+      return;
+    }
+
+    sendJson(res, 200, records);
+  });
 }
 
 // ---------------------------------------------------------------
-// 5. Надсилання JSON-відповіді
+// 5. Розбір даних: звичайний JSON-документ або NDJSON
+// ---------------------------------------------------------------
+function parseData(rawData) {
+  const text = rawData.trim();
+
+  if (text === '') {
+    return [];
+  }
+
+  // Спершу пробуємо звичайний JSON (масив або одиничний об’єкт).
+  try {
+    const parsed = JSON.parse(text);
+
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch (jsonError) {
+    // Не вдалося — отже, це може бути NDJSON: один JSON-об’єкт на рядок.
+    const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '');
+
+    return lines.map((line) => JSON.parse(line));
+  }
+}
+
+// ---------------------------------------------------------------
+// 6. Надсилання JSON-відповіді
 // ---------------------------------------------------------------
 function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload);

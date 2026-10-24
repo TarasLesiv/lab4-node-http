@@ -2,8 +2,9 @@
 // Простий HTTP-сервер на Node.js: читає файл даних bank_managers.json
 // (JSON-масив) і повертає його обробленим за параметрами рядка запиту.
 //
-// Робота з файлами — ЛИШЕ колбек-API модуля fs:
-// fs.readFile, fs.writeFile, fs.access. Без Sync, без promises, без async/await.
+// Робота з файлами — ЛИШЕ колбек-API модуля fs: fs.readFile, fs.writeFile, fs.access.
+// Синхронні варіанти функцій, проміси й синтаксис асинхронних функцій
+// у проєкті не використовуються.
 
 import http from 'node:http';
 import fs from 'node:fs';

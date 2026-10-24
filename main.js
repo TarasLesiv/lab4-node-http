@@ -86,6 +86,15 @@ function handleRequest(req, res) {
     return;
   }
 
+  // Параметри рядка запиту. Значення завжди є рядками, тому
+  // числові й логічні значення перетворюємо явно.
+  const flags = readFlags(url.searchParams);
+
+  if (flags.error) {
+    sendJson(res, 400, { error: flags.error });
+    return;
+  }
+
   // Файл даних перечитується на кожен запит — асинхронно, через колбек.
   fs.readFile(options.input, 'utf8', (readError, rawData) => {
     if (readError) {
@@ -94,20 +103,110 @@ function handleRequest(req, res) {
     }
 
     let records;
+    let result;
 
     try {
       records = parseData(rawData);
+      result = buildResponse(records, flags);
     } catch (parseError) {
       sendJson(res, 500, { error: 'Файл даних пошкоджено (некоректний JSON)' });
       return;
     }
 
-    sendJson(res, 200, records);
+    sendJson(res, 200, result);
   });
 }
 
 // ---------------------------------------------------------------
-// 5. Розбір даних: звичайний JSON-документ або NDJSON
+// 5. Параметри рядка запиту (варіант 1)
+//    ?mfo=true    — показувати код МФО (поле MFO)
+//    ?normal=true — лише банки зі станом 1 («Нормальний», поле COD_STATE)
+// Прапорець увімкнено лише тоді, коли його значення — саме «true».
+// ---------------------------------------------------------------
+const ALLOWED_PARAMS = ['mfo', 'normal'];
+
+function readFlags(searchParams) {
+  // Невідомий параметр — це помилка клієнта (400), а не мовчазне ігнорування.
+  for (const name of new Set(searchParams.keys())) {
+    if (!ALLOWED_PARAMS.includes(name)) {
+      return { error: `Невідомий параметр запиту: ${name}` };
+    }
+  }
+
+  return {
+    mfo: searchParams.get('mfo') === 'true',
+    normal: searchParams.get('normal') === 'true',
+    error: null,
+  };
+}
+
+// ---------------------------------------------------------------
+// 6. Формування відповіді: лише поля варіанта, у заданому порядку
+//    mfo_code ← MFO (якщо mfo=true), name ← SHORTNAME, state_code ← COD_STATE
+// ---------------------------------------------------------------
+function buildResponse(records, flags) {
+  const result = [];
+
+  for (const item of records) {
+    if (item === null || typeof item !== 'object') {
+      continue;
+    }
+
+    const stateCode = toNumber(item.COD_STATE);
+
+    // Фільтр ?normal=true — строга рівність 1.
+    if (flags.normal && stateCode !== 1) {
+      continue;
+    }
+
+    const record = {};
+
+    if (flags.mfo) {
+      record.mfo_code = toNumber(item.MFO);
+    }
+
+    record.name = toText(item.SHORTNAME);
+    record.state_code = stateCode;
+
+    result.push(record);
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------
+// 7. Перетворення значень
+// ---------------------------------------------------------------
+function toNumber(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const text = String(value).trim();
+
+  if (text === '') {
+    return null;
+  }
+
+  const number = Number(text);
+
+  return Number.isFinite(number) ? number : null;
+}
+
+function toText(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return typeof value === 'string' ? value : String(value);
+}
+
+// ---------------------------------------------------------------
+// 8. Розбір даних: звичайний JSON-документ або NDJSON
 // ---------------------------------------------------------------
 function parseData(rawData) {
   const text = rawData.trim();
@@ -130,7 +229,7 @@ function parseData(rawData) {
 }
 
 // ---------------------------------------------------------------
-// 6. Надсилання JSON-відповіді
+// 9. Надсилання JSON-відповіді
 // ---------------------------------------------------------------
 function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload);

@@ -1,0 +1,24 @@
+{
+  "name": "lab4-node-http",
+  "version": "1.0.0",
+  "description": "Лабораторна робота №4: простий HTTP-сервер на Node.js (варіант 1, bank_managers.json)",
+  "type": "module",
+  "main": "main.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node main.js",
+    "dev": "node --watch main.js"
+  },
+  "keywords": [
+    "node",
+    "http",
+    "lab4"
+  ],
+  "author": "Тарас Лесів",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.3"
+  }
+}

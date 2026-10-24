@@ -78,6 +78,23 @@ function startServer() {
 // 4. Обробник запиту
 // ---------------------------------------------------------------
 function handleRequest(req, res) {
+  // Синхронні помилки обробника перехоплюємо тут, щоб необроблений виняток
+  // не поклав сервер. Помилки в колбеках fs обробляються окремо (error-first).
+  try {
+    routeRequest(req, res);
+  } catch (handlerError) {
+    console.error(`Помилка обробника запиту: ${handlerError.message}`);
+
+    if (res.headersSent) {
+      res.end();
+      return;
+    }
+
+    sendJson(res, 400, { error: 'Некоректний запит' });
+  }
+}
+
+function routeRequest(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
   // Дані віддаються лише за маршрутом «/», будь-який інший шлях — 404.

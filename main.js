@@ -113,12 +113,34 @@ function handleRequest(req, res) {
       return;
     }
 
-    sendJson(res, 200, result);
+    sendResponse(res, result);
   });
 }
 
 // ---------------------------------------------------------------
-// 5. Параметри рядка запиту (варіант 1)
+// 5. Надсилання успішної відповіді
+//    Якщо задано --output, та сама відповідь спершу записується у файл.
+// ---------------------------------------------------------------
+function sendResponse(res, payload) {
+  const body = JSON.stringify(payload);
+
+  if (!options.output) {
+    sendBody(res, 200, body);
+    return;
+  }
+
+  fs.writeFile(options.output, body, 'utf8', (writeError) => {
+    if (writeError) {
+      sendJson(res, 500, { error: 'Не вдалося записати відповідь у файл' });
+      return;
+    }
+
+    sendBody(res, 200, body);
+  });
+}
+
+// ---------------------------------------------------------------
+// 6. Параметри рядка запиту (варіант 1)
 //    ?mfo=true    — показувати код МФО (поле MFO)
 //    ?normal=true — лише банки зі станом 1 («Нормальний», поле COD_STATE)
 // Прапорець увімкнено лише тоді, коли його значення — саме «true».
@@ -141,7 +163,7 @@ function readFlags(searchParams) {
 }
 
 // ---------------------------------------------------------------
-// 6. Формування відповіді: лише поля варіанта, у заданому порядку
+// 7. Формування відповіді: лише поля варіанта, у заданому порядку
 //    mfo_code ← MFO (якщо mfo=true), name ← SHORTNAME, state_code ← COD_STATE
 // ---------------------------------------------------------------
 function buildResponse(records, flags) {
@@ -175,7 +197,7 @@ function buildResponse(records, flags) {
 }
 
 // ---------------------------------------------------------------
-// 7. Перетворення значень
+// 8. Перетворення значень
 // ---------------------------------------------------------------
 function toNumber(value) {
   if (value === null || value === undefined) {
@@ -206,7 +228,7 @@ function toText(value) {
 }
 
 // ---------------------------------------------------------------
-// 8. Розбір даних: звичайний JSON-документ або NDJSON
+// 9. Розбір даних: звичайний JSON-документ або NDJSON
 // ---------------------------------------------------------------
 function parseData(rawData) {
   const text = rawData.trim();
@@ -229,11 +251,15 @@ function parseData(rawData) {
 }
 
 // ---------------------------------------------------------------
-// 9. Надсилання JSON-відповіді
+// 10. Надсилання JSON-відповіді
 // ---------------------------------------------------------------
-function sendJson(res, statusCode, payload) {
-  const body = JSON.stringify(payload);
+const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' };
 
-  res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+function sendJson(res, statusCode, payload) {
+  sendBody(res, statusCode, JSON.stringify(payload));
+}
+
+function sendBody(res, statusCode, body) {
+  res.writeHead(statusCode, JSON_HEADERS);
   res.end(body);
 }

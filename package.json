@@ -8,8 +8,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "start": "node main.js",
-    "dev": "node --watch main.js"
+    "start": "node main.js -i data/bank_managers.json -h 127.0.0.1 -p 3000 -o output.json",
+    "dev": "node --watch main.js -i data/bank_managers.json -h 127.0.0.1 -p 3005"
   },
   "keywords": [
     "node",
